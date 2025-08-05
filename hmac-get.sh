@@ -43,15 +43,21 @@ case "$EXPECTED_HMAC" in
         ;;
 esac
 
+FILE_CONTENT=$(curl -fsSL "$FINAL_URL")
+
 # Prompt for verification secret (visible input)
-printf "Enter verification secret: "
-IFS= read -r VERIFICATION_SECRET
+# IMPORTANT: We use /dev/tty (the actual terminal) so that the prompt and the key won't become part of
+#   the output that's piped into the next command.
+printf "Enter verification secret: " >/dev/tty
+IFS= read -r VERIFICATION_SECRET </dev/tty
 
 # Calculate actual HMAC
-ACTUAL_HMAC=$(curl -fsSL "$FINAL_URL" | openssl dgst $EXPECTED_ALGORITHM -hmac "$VERIFICATION_SECRET" | awk '{print $2}')
+ACTUAL_HMAC=$(echo "$FILE_CONTENT" | openssl dgst $EXPECTED_ALGORITHM -hmac "$VERIFICATION_SECRET" | awk '{print $2}')
 
-if [ "$ACTUAL_HMAC" = "$EXPECTED_HMAC" ]; then
-    echo "Integrity check PASSED"
-else
-    echo "Integrity check FAILED"
+if [ "$ACTUAL_HMAC" != "$EXPECTED_HMAC" ]; then
+    echo "Error: Integrity check FAILED. Either the verification secret was wrong or the file has been modified in transit." >&2
+    exit 1
 fi
+
+# Print contents so that they can be piped to the next command.
+echo "$FILE_CONTENT"
