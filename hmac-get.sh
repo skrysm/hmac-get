@@ -19,7 +19,10 @@ case "$URL" in
 esac
 
 # Download .hmac file and parse its contents
-EXPECTED_HMAC_CONTENTS=$(curl -fsSL "$FINAL_URL.hmac")
+EXPECTED_HMAC_CONTENTS=$(curl -fsSL "$FINAL_URL.hmac") || {
+    echo "Error: Failed to download HMAC file from: $FINAL_URL.hmac" >&2
+    exit 1
+}
 # Extract algorithm (everything before '(')
 EXPECTED_ALGORITHM=$(echo "$EXPECTED_HMAC_CONTENTS" | sed 's/(.*//')
 # Extract HMAC (everything after '= ')
@@ -43,7 +46,10 @@ case "$EXPECTED_HMAC" in
         ;;
 esac
 
-FILE_CONTENT=$(curl -fsSL "$FINAL_URL")
+FILE_CONTENT=$(curl -fsSL "$FINAL_URL") || {
+    echo "Error: Failed to download file from: $FINAL_URL" >&2
+    exit 1
+}
 
 # Prompt for verification secret (visible input)
 # IMPORTANT: We use /dev/tty (the actual terminal) so that the prompt and the key won't become part of
