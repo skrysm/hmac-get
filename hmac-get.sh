@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Makes the script fail on errors and unset variables.
+set -euo pipefail
+
 #
 # Check that required commands are available.
 #
