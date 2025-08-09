@@ -90,7 +90,30 @@ IFS= read -r VERIFICATION_SECRET </dev/tty
 ACTUAL_HMAC=$(echo "$FILE_CONTENT" | openssl dgst $EXPECTED_ALGORITHM -hmac "$VERIFICATION_SECRET" | awk '{print $2}')
 
 if [ "$ACTUAL_HMAC" != "$EXPECTED_HMAC" ]; then
-    echo "Error: Integrity check FAILED. Either the verification secret was wrong or the file has been modified in transit." >&2
+    if [[ "$VERIFICATION_SECRET" =~ ^(.+)_([0-9]{2})$ ]]; then
+        #
+        # Verification secret with mod97 checksum.
+        # This way we can differentiate between "secret is wrong" and "file has been modified in transit".
+        #
+        # NOTE: We use a "_" to separate the checksum (instead of "-") so that terminals mark the secret
+        #   including the checksum when double clicking it.
+        #
+        VERIFICATION_SECRET_BASE="${BASH_REMATCH[1]}"
+        EXPECTED_VERIFICATION_SECRET_MOD97_CHECKSUM="${BASH_REMATCH[2]}"
+
+        ACTUAL_VERIFICATION_SECRET_MOD97_CHECKSUM=$(printf '%02d' $(( 0x$(echo -n "$VERIFICATION_SECRET_BASE" | openssl dgst -sha256 | awk '{print $2}' | head -c8) % 97 )))
+
+        if [[ "$ACTUAL_VERIFICATION_SECRET_MOD97_CHECKSUM" == "$EXPECTED_VERIFICATION_SECRET_MOD97_CHECKSUM" ]]; then
+            echo "Error: Integrity check FAILED. The file has been modified in transit!!!" >&2
+        else
+            echo "Error: Integrity check FAILED. You entered the wrong verification secret." >&2
+        fi
+    else
+        #
+        # Verification secret without checksum.
+        #
+        echo "Error: Integrity check FAILED. Either you entered the wrong verification secret or the file has been modified in transit." >&2
+    fi
     exit 1
 fi
 
